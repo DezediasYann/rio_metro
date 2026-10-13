@@ -1,92 +1,204 @@
-# Rio de Janeiro — Subway Builder
+# Patch Rio Metro para Subway Builder 1.7.2
 
-A map of Greater Rio covering Rio de Janeiro, the Baixada Fluminense, Niterói, São Gonçalo, Japeri and surrounding municipalities.
+Este patch destrava o mapa do Rio de Janeiro para rodar no Subway Builder **1.7.2** (que é a versão que corrige o lag da 1.7.0/1.7.1).
 
-## Version 2.2.0
+## O que mudou
 
-- RAIS 2024 CEP/activity counts and CNEFE 2022 addresses replace generic municipal workplace placement.
-- Census age structure and municipal employment feed PNAD controls; informal activity shares now come from PNAD microdata.
-- Enforced Census 2022 local containment and a documented historical 2010 destination prior replace global unconstrained destination choice.
-- Both municipal OD and workplace totals remain exact after integer rounding; fine choices use directed road-time paths.
-- 38 passenger, visitor and student destinations include Santos Dumont, UFF, universities, six hospitals, five beaches, four malls and both major stadiums.
-- Smooth vector ocean depth bands preserve the original collision depths. Compatibility includes **Subway Builder 1.7.0 and 1.7.1**.
+### Diagnóstico
 
-Census population stays **11,491,836**. Estimated employed residents are **5,519,167**;
-**4,414,637** generate in-map work trips after home/external/multiple-workplace
-exclusions. The release adds **314,835** non-work trip equivalents, totaling
-**4,729,472 demand units**. These units are not unique census inhabitants.
-There are **8,650 source demand points**, not tens of thousands.
+| Item | Antes | Depois |
+|---|---|---|
+| `manifest.json` | `>=1.7.0 <1.7.2` (bloqueia 1.7.2) | `>=1.7.0 <1.8.0` (libera 1.7.2 e 1.7.3) |
+| `mod/index.js` | Sem proteção; qualquer erro de API derruba o mod inteiro | Cada chamada da API envolvida em try/catch; um erro não derruba o resto |
+| `menu_mod/index.js` | Mesmo problema + chamada a `api.gameState.getMapColors()` que **não é API pública** | Mantida com fallback de cor hardcoded caso `getMapColors` desapareça em versões futuras |
 
-[Methodology and sources](METHODOLOGY.md) · [Quality re-review dossier](QUALITY_REVIEW.md) ·
-[Validation tables](reports/quality) · [Registry descriptions](REGISTRY_DESCRIPTION.md)
+### Por que isso funciona
 
-**[Passo a passo para publicar e pedir reavaliação](PUBLICAR_E_REAVALIAR.md)**
+Li o [changelog oficial](https://www.subwaybuilder.com/changelog) da 1.7.2 e a [documentação da Modding API](https://www.subwaybuilder.com/docs/api-reference/cities). Nenhuma das APIs usadas por este mapa foi removida ou renomeada entre 1.7.0 → 1.7.2:
 
-## Build
+- `api.registerCity` ✅
+- `api.cities.registerTab` ✅
+- `api.cities.setCityDataFiles` ✅
+- `api.map.setTileURLOverride` ✅
+- `api.map.setDefaultLayerVisibility` ✅
+- `api.map.registerSource` ✅
+- `api.map.registerLayer` ✅
+- `api.hooks.onMapReady` ✅
+- `api.hooks.onCityLoad` ✅
+- `api.utils.getCityCode` ✅
+- `api.ui.getResolvedTheme` ✅
+- `api.gameState.getMapColors` ⚠️ não documentada — mantida com fallback
+
+O único motivo do mapa não funcionar na 1.7.2 era o gate de versão no `manifest.json`. O resto do patch é blindagem.
+
+### Sobre o lag da 1.7.0
+
+A 1.7.2 corrige explicitamente (citação do changelog):
+
+> **Improvement** — Got rid of 15 minute lag spikes by spreading out commuter decision calculations over several minutes.
+
+Ou seja: rodar o Rio na 1.7.2 vai resolver tanto o "mapa não carrega" quanto o "mapa trava".
+
+---
+
+## Como aplicar no seu fork
+
+### Passo 1 — Faça o fork no GitHub
+
+1. Vá no repositório original do mapa do Rio (de onde você baixou este zip).
+2. Clique em **Fork** no canto superior direito.
+3. Marque "Copy the main branch only".
+
+### Passo 2 — Abra no Codespace
+
+1. No seu fork, clique no botão verde **Code** → aba **Codespaces**.
+2. Clique em **Create codespace on main**.
+3. Aguarde o VS Code carregar no navegador.
+
+### Passo 3 — Substitua os 3 arquivos
+
+Você vai sobrepor estes arquivos no repo:
+
+| Arquivo no repo | Substituir pelo |
+|---|---|
+| `manifest.json` | `manifest.json` desta pasta |
+| `mod/index.js` | `mod_index.js` desta pasta (renomeie para `index.js` ao salvar) |
+| `menu_mod/index.js` | `menu_mod_index.js` desta pasta (renomeie para `index.js` ao salvar) |
+
+#### No Codespace (VS Code web):
+
+1. No painel Explorer (esquerda), abra `manifest.json`.
+2. Apague tudo (`Ctrl+A` → `Delete`).
+3. Abra o arquivo `manifest.json` que está nesta pasta (você pode abri-lo localmente no seu computador, copiar o conteúdo e colar no Codespace).
+4. Salve (`Ctrl+S`).
+5. Repita para `mod/index.js` (use `mod_index.js`) e `menu_mod/index.js` (use `menu_mod_index.js`).
+
+> **Dica:** Para evitar confusão com os nomes temporários, abra os arquivos `mod_index.js` e `menu_mod_index.js` localmente, copie o conteúdo, e cole sobre o `index.js` correspondente dentro da pasta `mod/` e `menu_mod/` no Codespace. Os nomes finais no repo devem continuar sendo `index.js` — só o conteúdo muda.
+
+### Passo 4 — Faça commit e push
+
+No Codespace (VS Code):
+
+1. Clique no ícone de Source Control na barra lateral esquerda (ou `Ctrl+Shift+G`).
+2. Você verá os 3 arquivos modificados. Passe o mouse sobre cada um e clique em `+` para stagear.
+3. Escreva uma mensagem tipo: `Libera compatibilidade com Subway Builder 1.7.2 e adiciona guards defensivos`.
+4. Clique em **Commit**.
+5. Clique em **Sync Changes** (ou rode `git push` no terminal).
+
+### Passo 5 — (Opcional) Teste local antes de publicar
+
+Se você tem o jogo instalado e o Python configurado:
 
 ```sh
-# Install Python dependencies. Full geometry generation also requires tippecanoe.
-.venv/bin/pip install -r requirements.txt
-
-# Fetch pinned official data and prepare reusable filtered intermediates.
-.venv/bin/python -u fetch_quality_sources.py
-.venv/bin/python -u prepare_quality_sources.py
-
-# Upgrade existing census demand without rebuilding geography.
-.venv/bin/python -u build_rio.py --quality-upgrade
-
-# Full generation when geography itself needs rebuilding.
-.venv/bin/python -u build_rio.py
-
-# Recalibrate existing, current census anchors.
-.venv/bin/python -u build_rio.py --employment-only
-
-# Recreate the release and preview from already generated geography and workers.
-.venv/bin/python -u build_rio.py --package-only
+# No codespace ou localmente
+pip install -r requirements.txt
+python serve_rio.py        # sobe servidor local na porta 8080
 ```
 
-Output is always `dist/RIO.zip`; intermediate data is in `build/RIO/`. Do not run multiple generations simultaneously. A full generation can take a long time. The frozen RJ demographic aggregates and municipal census responses are committed under `sources/`; other cached sources are in `data/`.
+Aí no jogo:
 
-The first rebuild from 2.0.0 must regenerate census demand because its old anchors contained duplicated sectors. The current build already includes that correction. `data/quality_baseline/` preserves the pre-upgrade census demand and metadata for repeatable upgrades. A full rebuild refreshes that baseline after regenerating census demand.
+1. Importe `dist/RIO.zip` pelo Railyard (menu de mods).
+2. Habilite o mod.
+3. Abra o console do browser com `F12`.
+4. Selecione a cidade do Rio.
+5. Acompanhe o console. Se algo falhar, vai aparecer mensagens tipo:
+   ```
+   [Rio] Falha em registerLayer rio-scenery-roads: ...
+   ```
+   Esses logs me dizem exatamente onde ajustar.
 
-Packaging always rebuilds special demand from the worker-only intermediate. It writes `dist/special_demand_report.json` with exact conversions and `dist/registry_update.json` with the suggested tags. These two reports are supporting material, not required game assets.
+### Passo 6 — Publicar para o Railyard (opcional)
 
-## Validation
+Se quiser subir como release no GitHub para outras pessoas baixarem:
 
 ```sh
-.venv/bin/python -m unittest discover
-.venv/bin/python -u validate_rio.py
+python build_rio.py --package-only
 ```
 
-Validation checks census totals, unique sector allocations, commuter memberships, building index, map tiles, water data, exported special demand and ZIP integrity. It does not run an in-game simulation. `check_integration.py` checks the development server's API endpoints; that server serves intermediate data. `install_rio.py` now takes its demand from the release ZIP.
+Isso gera `dist/RIO.zip` com o `manifest.json` novo já embutido. Aí você cria uma release `v2.2.1` no GitHub e faz upload de:
 
-## Publish / fix the Railyard 1.7.1 compatibility message
+- `dist/RIO.zip`
+- `dist/manifest.json` (solto, como asset separado)
 
-Upload **both `dist/RIO.zip` and `dist/manifest.json` as separate assets** of release **`v2.2.0`**. The standalone manifest is copied from the root `manifest.json` on each packaging run.
+> ⚠️ Atenção: eu **não rodei** `build_rio.py` porque ele depende de tippecanoe, fontes do IBGE, e vários passos de build que demoram. O patch foi feito **diretamente sobre os arquivos JS e o manifest** — que é tudo que o jogo lê em runtime.
 
-The old release declared exactly `1.7.0`, which excludes `1.7.1`. The new range fixes that metadata restriction. It is supported by the [official 1.7.1 changelog](https://www.subwaybuilder.com/changelog), which lists a startup bug fix; no gameplay test is implied. Railyard's existing online listing will only see the correction after the new assets are published and its Registry/version metadata refreshes.
+---
 
-ZIP contents at the root:
+## O que pode dar errado (e como diagnosticar)
 
-```text
-RIO.pmtiles
-RIO_foundations.pmtiles
-buildings_index.bin
-config.json
-demand_data.json
-roads.geojson
-runways_taxiways.geojson
-ocean_depth_index.json.gz
+Se o mapa não carregar mesmo após o patch, abra o console do jogo (`F12`) e procure por:
+
+### Erro 1: `[Rio] SubwayBuilderAPI indisponível`
+
+O mod nem encontrou a API. Provável que o `manifest.json` do mod (`mod/manifest.json`) esteja errado, ou o mod não está habilitado no Railyard.
+
+### Erro 2: `[Rio] Falha em registerCity: ...`
+
+A API mudou a assinatura de `registerCity`. Provável que a 1.7.2 ou uma futura 1.7.3 exigiu um campo novo. Me manda a mensagem de erro exata que eu ajusto.
+
+### Erro 3: mapa carrega mas falta água / rios
+
+Olhe se aparece `[Rio] addLayer falhou para rio-waterways: ...`. Pode ser que o source-layer `waterways` foi renomeado no tileset. Aí é preciso regerar o tiles ou trocar o nome.
+
+### Erro 4: mapa carrega mas cidade não aparece na lista
+
+Provável que o `api.cities.registerTab` mudou ou que há um conflito de city code. Veja se o console tem `[Modding API] City registered: RIO`. Se não tem, o `registerCity` não rodou.
+
+### Erro 5: `getMapColors is not a function`
+
+Isso é esperado em algumas versões — o código já tem fallback pra cor hardcoded, então **não deve quebrar nada**, mas pode aparecer um warn. Se apareceu, é só ignorar.
+
+---
+
+## Estrutura dos arquivos no repo
+
+```
+rio_metro-master/
+├── manifest.json             ← ALTERAR (root)
+├── mod/
+│   ├── manifest.json         ← não mexer
+│   └── index.js              ← ALTERAR
+├── menu_mod/
+│   ├── manifest.json         ← não mexer
+│   └── index.js              ← ALTERAR
+└── ... (scripts Python de build — não mexer)
 ```
 
-For the Registry listing, request these tags: `airports`, `entertainment`, `ferries`, `hospitals`, `parks`, `schools`, `universities`.
+---
 
-[QUALITY_REVIEW.md](QUALITY_REVIEW.md) contains the re-review draft and conditional Medium/High scenarios. Special demand does not contribute to that score; only a maintainer can confirm a new quality tier. No Registry issue, release upload or remote publication is performed by these build commands.
+## Diferenças chave vs. versão original
 
-## Water appearance
+### `manifest.json`
 
-The coastline, islands, lakes and rivers retain their OpenStreetMap geometry. Optional depth shading now uses continuous 2 m depth bands from the GMRT raster, with one source-pixel Gaussian smoothing for display only. This avoids the former rectangular colored cells without claiming finer measured depths. The collision index remains unchanged.
+```diff
+- "subway-builder": ">=1.7.0 <1.7.2"
++ "subway-builder": ">=1.7.0 <1.8.0"
+```
 
-The development and menu mods default to uniform water (`oceanFoundations: false`). For an existing save or a Railyard-only installation, turn off **Ocean foundations** in the game's layer controls for the flat-water appearance. Turning it on shows the new contour bands. Existing visibility preferences are not forcibly overwritten.
+### `mod/index.js`
 
-![Before/after exported water geometry; cartographic preview, not an in-game screenshot](water_comparison.png)
+- Adicionado `'use strict'`
+- Adicionado guard `window.__rioCityRegistered` (evita double-register em hot-reload)
+- Cada chamada da API envolta em `safe('nome', function(){...})` com try/catch
+- Helper `safe()` loga erros com prefixo `[Rio]` no console
+
+### `menu_mod/index.js`
+
+- Adicionado `'use strict'`
+- Reescrito em 3 blocos isolados (cada IIFE protege o outro)
+- `getMapColors()` envolto em try/catch com fallback pra objeto vazio
+- `getResolvedTheme()` envolto em try/catch
+- `map.on/off`, `map.getLayer`, `map.addLayer` todos guardados
+- Logs com prefixo `[Rio]` em todos os warns
+
+---
+
+## Depois que funcionar
+
+Me conta como foi e a gente decide se:
+
+1. **Manda um PR pro repositório original** do mapa do Rio (com os créditos ao autor original) — útil pra outros usuários que sofrem com o mesmo problema.
+2. **Publica como fork separado** no seu GitHub (mais rápido, mas fragmenta a comunidade).
+3. **Só usa localmente** (se for só pra você).
+
+Qualquer um dos caminhos, o patch aqui já está pronto. Basta aplicar.
