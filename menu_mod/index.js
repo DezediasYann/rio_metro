@@ -57,7 +57,6 @@
         const map = activeMap;
         if (!map) return;
         if (!api.utils || typeof api.utils.getCityCode !== 'function') return;
-
         const code = String(api.utils.getCityCode() || '').split(':').pop();
         if (code !== 'RIO') return;
         if (!map.getSource || !map.getLayer || !map.addLayer) return;
@@ -69,33 +68,23 @@
 
         let colors = {};
         try { colors = (api.gameState && typeof api.gameState.getMapColors === 'function') ? (api.gameState.getMapColors() || {}) : {}; }
-        catch (e) { /* getMapColors não é API pública; cai no fallback */ }
+        catch (e) { /* getMapColors não é API pública; fallback */ }
 
         const water = colors.water || (dark ? '#294d60' : '#91bccf');
         const layers = [
-            {
-                id: 'rio-waterways', type: 'line', source: 'general-tiles', 'source-layer': 'waterways', minzoom: 8,
-                paint: { 'line-color': water, 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 12, 1.2, 16, 2.2] }
-            },
-            {
-                id: 'rio-coastline', type: 'line', source: 'general-tiles', 'source-layer': 'coastline',
-                paint: { 'line-color': dark ? '#527888' : '#648e9f', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.3, 13, 0.7, 16, 1.1], 'line-opacity': 0.75 }
-            },
-            {
-                id: 'rio-scenery-roads', type: 'line', source: 'general-tiles', 'source-layer': 'scenery_roads',
-                paint: { 'line-color': dark ? '#69757a' : '#959e9f', 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.3, 14, 1.2], 'line-opacity': 0.7 }
-            }
+            { id: 'rio-waterways', type: 'line', source: 'general-tiles', 'source-layer': 'waterways', minzoom: 8,
+              paint: { 'line-color': water, 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 12, 1.2, 16, 2.2] } },
+            { id: 'rio-coastline', type: 'line', source: 'general-tiles', 'source-layer': 'coastline',
+              paint: { 'line-color': dark ? '#527888' : '#648e9f', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.3, 13, 0.7, 16, 1.1], 'line-opacity': 0.75 } },
+            { id: 'rio-scenery-roads', type: 'line', source: 'general-tiles', 'source-layer': 'scenery_roads',
+              paint: { 'line-color': dark ? '#69757a' : '#959e9f', 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.3, 14, 1.2], 'line-opacity': 0.7 } }
         ];
-
         const before = ['buildings-3d', 'building-foundations'].find(function (id) {
             try { return map.getLayer(id); } catch (e) { return false; }
         });
         for (const layer of layers) {
-            try {
-                if (!map.getLayer(layer.id)) map.addLayer(layer, before);
-            } catch (e) {
-                console.warn('[Rio] addLayer falhou para ' + layer.id + ':', e && e.message || e);
-            }
+            try { if (!map.getLayer(layer.id)) map.addLayer(layer, before); }
+            catch (e) { console.warn('[Rio] addLayer falhou para ' + layer.id + ':', e && e.message || e); }
         }
     }
 
@@ -108,11 +97,8 @@
     try {
         if (api.hooks && typeof api.hooks.onMapReady === 'function') {
             api.hooks.onMapReady(function (map) {
-                try {
-                    if (activeMap && typeof activeMap.off === 'function') {
-                        activeMap.off('styledata', schedule);
-                    }
-                } catch (e) { /* ignore */ }
+                try { if (activeMap && typeof activeMap.off === 'function') activeMap.off('styledata', schedule); }
+                catch (e) { /* ignore */ }
                 activeMap = map || (api.utils && typeof api.utils.getMap === 'function' ? api.utils.getMap() : null);
                 if (!activeMap) return;
                 if (typeof activeMap.on === 'function') activeMap.on('styledata', schedule);
